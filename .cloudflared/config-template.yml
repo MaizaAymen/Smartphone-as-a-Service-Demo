@@ -1,0 +1,20 @@
+# Cloudflare Tunnel Configuration Template
+# Copy to: C:\Users\<YourUser>\.cloudflared\config.yml
+
+# Replace with your tunnel ID from: cloudflared tunnel create smartphone-demo
+tunnel: YOUR-TUNNEL-ID-HERE
+
+# Replace with your actual credentials file path
+credentials-file: C:\Users\<YourUser>\.cloudflared\YOUR-TUNNEL-ID.json
+
+# Ingress rules - routes traffic to your local backend
+ingress:
+  # Option 1: Use your own domain (requires DNS setup)
+  # - hostname: smartphone-demo.yourdomain.com
+  #   service: http://localhost:8000
+  
+  # Option 2: Use Cloudflare-provided domain (automatic)
+  - service: http://localhost:8000
+  
+  # Catch-all rule (required)
+  # - service: http_status:404

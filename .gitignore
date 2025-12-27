@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+# Cloudflare Tunnel credentials (NEVER commit these!)
+.cloudflared/*.json
+.cloudflared/config.yml
+
+# Keep template
+!.cloudflared/config-template.yml

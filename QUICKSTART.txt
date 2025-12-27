@@ -1,0 +1,120 @@
+================================================
+🚀 SMARTPHONE-AS-A-SERVICE - QUICK START CARD
+================================================
+
+📋 PREREQUISITES CHECK:
+□ Python 3.8+ installed
+□ ADB installed (test: adb devices)
+□ Cloudflared installed
+□ Android phone connected via USB
+□ USB debugging enabled on phone
+
+================================================
+
+🎯 FAST START (3 Steps):
+
+1️⃣  INSTALL BACKEND DEPENDENCIES:
+   cd backend
+   pip install -r requirements.txt
+
+2️⃣  START BACKEND (Terminal 1):
+   cd backend
+   python main.py
+   
+   ✅ Wait for: "Uvicorn running on http://127.0.0.1:8000"
+
+3️⃣  START TUNNEL (Terminal 2):
+   cloudflared tunnel --url http://localhost:8000
+   
+   ✅ Copy the URL that appears:
+      https://xxxxx-yyyyy-zzzzz.trycloudflare.com
+
+4️⃣  UPDATE FRONTEND:
+   Open index.html and change:
+   const BACKEND = "https://your-tunnel-url-here";
+   
+   Then open index.html in browser!
+
+================================================
+
+🔧 CORRECT STARTUP ORDER:
+
+1. Backend FIRST  ✅
+2. Tunnel SECOND  ✅
+3. Frontend LAST  ✅
+
+❌ NEVER start tunnel before backend!
+
+================================================
+
+🧪 QUICK TEST:
+
+# Test backend locally:
+curl http://localhost:8000/health
+
+# Should return:
+# {"status":"healthy","device_connected":true,...}
+
+================================================
+
+⚡ TROUBLESHOOTING:
+
+"Cannot reach backend"
+→ Check: Is backend running? localhost:8000/health
+
+"Error 1033"
+→ Restart: Backend first, then tunnel
+→ Wait 30 seconds after starting tunnel
+
+"CORS Error"
+→ Backend has CORS enabled, restart it
+
+"Device not found"
+→ Run: adb devices
+→ Accept USB debugging on phone
+
+================================================
+
+📚 FULL DOCUMENTATION:
+
+• Complete setup:  START.md
+• Troubleshooting:  TROUBLESHOOTING.md
+• Production tips:  See README.md
+
+================================================
+
+🎬 DEMO ENDPOINTS:
+
+GET /health      - Check status
+GET /reserve     - Reserve phone
+GET /run-test    - Open browser on phone
+GET /metrics     - Get device stats
+GET /release     - Release phone
+
+================================================
+
+💡 PRO TIP:
+
+For demos/interviews, use NAMED TUNNEL:
+→ Stable URL that never changes
+→ See TROUBLESHOOTING.md for setup
+
+Command:
+cloudflared tunnel create smartphone-demo
+cloudflared tunnel run smartphone-demo
+
+================================================
+
+✅ SUCCESS INDICATORS:
+
+Backend Terminal:
+"INFO:     Uvicorn running on http://127.0.0.1:8000"
+
+Tunnel Terminal:
+"Connection registered"
+"Your quick Tunnel has been created!"
+
+Browser:
+"✅ Connected to backend!"
+
+================================================
