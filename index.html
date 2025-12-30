@@ -35,6 +35,7 @@ pre {
 
 <button onclick="call('/reserve')">Reserve</button>
 <button onclick="call('/run-test')">Run Test</button>
+<button onclick="call('/run-alert-test')">Run Alert Test</button>
 <button onclick="getMetrics()">Metrics</button>
 <button onclick="call('/release')">Release</button>
 
@@ -44,7 +45,7 @@ pre {
 // Configuration - UPDATE THIS WITH YOUR TUNNEL URL
 // For development: use your cloudflared tunnel URL
 // For production: use your named tunnel URL (e.g., https://smartphone-demo.yourname.com)
-const BACKEND = "https://triangle-checklist-started-badly.trycloudflare.com";
+const BACKEND = "https://diagram-comedy-holder-california.trycloudflare.com";
 
 async function call(endpoint) {
   try {

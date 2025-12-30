@@ -80,11 +80,22 @@ def run_test():
         return {"error": "Device not reserved"}
 
     run_cmd(
-        "adb shell am start -a android.intent.action.VIEW -d https://example.com"
+        "adb shell am start -a android.intent.action.VIEW -d https://portfolio-teal-nine-41.vercel.app/"
     )
 
     return {"status": "browser opened"}
 
+
+@app.get("/run-alert-test")
+def run_alert_test():
+    if not device_reserved:
+        return {"error": "Device not reserved"}
+
+    run_cmd(
+        "adb shell input text 'Wow, it so cool feature'"
+    )
+
+    return {"status": "alert triggered"}
 
 @app.get("/metrics")
 def metrics():
