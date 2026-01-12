@@ -2,16 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import subprocess
-import uvicorn
 import os
 import time
-import re
 
-app = FastAPI(title="Smartphone-as-a-Service Demo", version="1.4")
+# Create the app
+app = FastAPI()
 
-# =========================
-# CORS
-# =========================
+# Allow frontend to connect
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,185 +17,119 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
-# GLOBALS
-# =========================
-device_reserved = False
-SCREENSHOT_PATH = "screenshot.png"
-BROWSER_PACKAGE = "com.sec.android.app.sbrowser"
-URL_TO_OPEN = "https://portfolio-teal-nine-41.vercel.app/"
-battery_before_test = None
+# Settings
+device_is_busy = False
+screenshot_file = "screenshot.png"
+test_url = "https://portfolio-teal-nine-41.vercel.app/"
 
-# =========================
-# UTILS
-# =========================
-def run_cmd(cmd: str):
-    """Run a shell command with subprocess"""
+# Run a command on the phone
+def run_command(command):
     try:
-        out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, timeout=15)
-        return out.decode()
-    except Exception as e:
-        return str(e)
+        result = subprocess.check_output(command, shell=True, timeout=15)
+        return result.decode()
+    except:
+        return ""
 
-def device_connected():
-    output = run_cmd("adb devices")
-    lines = output.strip().split("\n")
-    for line in lines[1:]:
-        if "\tdevice" in line:
-            return True
+# Check if phone is connected
+def phone_connected():
+    output = run_command("adb devices")
+    if "device" in output:
+        return True
     return False
 
-def extract_launch_time(output: str):
-    """Extract TotalTime from am start -W"""
-    match = re.search(r"TotalTime:\s*(\d+)", output)
-    return int(match.group(1)) if match else None
-
-def get_precise_battery_mAh():
-    """
-    Returns battery charge in mAh (float) using multiple methods
-    """
-    # Method 1: Try chargeCounter from batteryproperties
-    output = run_cmd("adb shell dumpsys batteryproperties")
-    match = re.search(r'chargeCounter:\s*(-?\d+)', output)
-    if match:
-        return int(match.group(1)) / 1000  # µAh to mAh
-    
-    # Method 2: Try dumpsys battery
-    output = run_cmd("adb shell dumpsys battery")
-    match = re.search(r'Charge counter:\s*(-?\d+)', output)
-    if match:
-        return int(match.group(1)) / 1000  # µAh to mAh
-    
-    # Method 3: Try reading directly from sysfs
-    output = run_cmd("adb shell cat /sys/class/power_supply/battery/charge_counter")
-    if output and output.strip().isdigit():
-        return int(output.strip()) / 1000  # µAh to mAh
-    
-    # Method 4: Estimate from capacity percentage (rough estimate)
-    output = run_cmd("adb shell dumpsys battery")
-    level_match = re.search(r'level:\s*(\d+)', output)
-    capacity_match = re.search(r'Charge\s*counter:\s*(\d+)', output)
-    
-    if level_match and capacity_match:
-        level = int(level_match.group(1))
-        # Rough estimate assuming typical phone battery ~3000-4000 mAh
-        return level * 40  # Rough approximation
-    
-    return None
-
-def extract_ram(mem_output):
-    """Extract TOTAL PSS in MB"""
-    match = re.search(r'TOTAL\s+(\d+)', mem_output)
-    return int(match.group(1)) / 1024 if match else None  # MB
-
-# =========================
-# BASIC ENDPOINTS
-# =========================
+# Main page
 @app.get("/")
-def root():
-    return {"status": "backend alive", "message": "Smartphone-as-a-Service API"}
+def home():
+    return {"message": "Backend is running"}
 
+# Check status
 @app.get("/health")
-def health():
+def check_health():
+    connected = phone_connected()
     return {
-        "status": "healthy",
-        "device_connected": device_connected(),
-        "device_reserved": device_reserved
+        "status": "ok",
+        "phone_connected": connected,
+        "phone_busy": device_is_busy
     }
 
+# Reserve the phone
 @app.get("/reserve")
-def reserve():
-    global device_reserved
-    if not device_connected():
+def reserve_phone():
+    global device_is_busy
+    
+    if not phone_connected():
         return {"error": "No phone connected"}
-    if device_reserved:
+    
+    if device_is_busy:
         return {"status": "busy"}
-    device_reserved = True
+    
+    device_is_busy = True
     return {"status": "reserved"}
 
+# Release the phone
 @app.get("/release")
-def release():
-    global device_reserved
-    device_reserved = False
+def release_phone():
+    global device_is_busy
+    device_is_busy = False
     return {"status": "released"}
 
-# =========================
-# SCREENSHOT
-# =========================
+# Take a screenshot
 @app.get("/screenshot")
-def get_screenshot():
-    if not device_reserved:
-        return {"error": "Device not reserved"}
-    run_cmd(f"adb exec-out screencap -p > {SCREENSHOT_PATH}")
-    if os.path.exists(SCREENSHOT_PATH):
-        return FileResponse(SCREENSHOT_PATH, media_type="image/png")
+def take_screenshot():
+    if not device_is_busy:
+        return {"error": "Phone not reserved"}
+    
+    run_command(f"adb exec-out screencap -p > {screenshot_file}")
+    
+    if os.path.exists(screenshot_file):
+        return FileResponse(screenshot_file, media_type="image/png")
     else:
-        return {"error": "Failed to capture screenshot"}
+        return {"error": "Screenshot failed"}
 
-# =========================
-# PERFORMANCE TEST (Battery, CPU, RAM)
-# =========================
+# Run a test
 @app.get("/run-test")
-def run_test():
-    if not device_reserved:
-        return {"error": "Device not reserved"}
-
-    # ---- BEFORE ----
-    battery_before_mAh = get_precise_battery_mAh()
-    print(f"DEBUG: Battery before: {battery_before_mAh}")
-    ram_before = run_cmd(f"adb shell dumpsys meminfo {BROWSER_PACKAGE}")
-    cpu_before = run_cmd(f"adb shell top -n 1 -b | findstr {BROWSER_PACKAGE}")
-
-    # ---- LAUNCH TEST ----
-    launch_output = run_cmd(f"adb shell am start -W -a android.intent.action.VIEW -d {URL_TO_OPEN}")
-    launch_time_ms = extract_launch_time(launch_output)
-    time.sleep(3)
-
-    # ---- AFTER ----
-    battery_after_mAh = get_precise_battery_mAh()
-    print(f"DEBUG: Battery after: {battery_after_mAh}")
-    ram_after = run_cmd(f"adb shell dumpsys meminfo {BROWSER_PACKAGE}")
-    cpu_after = run_cmd(f"adb shell top -n 1 -b | findstr {BROWSER_PACKAGE}")
-
-    # Take screenshot
-    run_cmd(f"adb exec-out screencap -p > {SCREENSHOT_PATH}")
-
-    # ---- CALCULATE DIFFERENCES ----
-    ram_before_mb = extract_ram(ram_before)
-    ram_after_mb = extract_ram(ram_after)
-    ram_diff_mb = round(ram_after_mb - ram_before_mb, 2) if ram_before_mb and ram_after_mb else None
-
-    # Calculate battery drain (positive = drain, negative = charge gain)
-    if battery_before_mAh and battery_after_mAh:
-        battery_drain_mAh = round(battery_before_mAh - battery_after_mAh, 6)
-        print(f"DEBUG: Battery drain calculated: {battery_drain_mAh}")
+def run_test(url: str = None):
+    if not device_is_busy:
+        return {"error": "Phone not reserved"}
+    
+    # Use provided URL or default
+    if url:
+        website = url
     else:
-        battery_drain_mAh = None
-        print(f"DEBUG: Could not calculate drain - before: {battery_before_mAh}, after: {battery_after_mAh}")
-
+        website = test_url
+    
+    # Get battery level before
+    battery_output = run_command("adb shell dumpsys battery")
+    battery_before = 0
+    for line in battery_output.split("\n"):
+        if "level:" in line:
+            battery_before = int(line.split(":")[1].strip())
+    
+    # Open the website
+    run_command(f"adb shell am start -a android.intent.action.VIEW -d {website}")
+    time.sleep(3)
+    
+    # Get battery level after
+    battery_output = run_command("adb shell dumpsys battery")
+    battery_after = 0
+    for line in battery_output.split("\n"):
+        if "level:" in line:
+            battery_after = int(line.split(":")[1].strip())
+    
+    # Calculate battery change
+    battery_change = battery_before - battery_after
+    
+    # Take screenshot
+    run_command(f"adb exec-out screencap -p > {screenshot_file}")
+    
     return {
-        "launch_time_ms": launch_time_ms,
-        "battery_before_mAh": battery_before_mAh,
-        "battery_after_mAh": battery_after_mAh,
-        "battery_drain_mAh": battery_drain_mAh,
-        "ram_before_MB": ram_before_mb,
-        "ram_after_MB": ram_after_mb,
-        "ram_diff_MB": ram_diff_mb,
-        "cpu_before": cpu_before.strip(),
-        "cpu_after": cpu_after.strip(),
-        "screenshot": "available" if os.path.exists(SCREENSHOT_PATH) else "failed"
+        "battery_before": battery_before,
+        "battery_after": battery_after,
+        "battery_used": battery_change,
+        "screenshot": "available" if os.path.exists(screenshot_file) else "failed"
     }
 
-# =========================
-# HARDWARE DELTA (Alias for /run-test)
-# =========================
-@app.get("/hardware-delta")
-def hardware_delta():
-    """Same as /run-test but with explicit naming for hardware metrics"""
-    return run_test()
-
-# =========================
-# MAIN
-# =========================
+# Start the server
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)

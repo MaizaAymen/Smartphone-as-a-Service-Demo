@@ -73,6 +73,7 @@ const Dashboard = () => {
   const [launchTime, setLaunchTime] = useState(null);
   const [hardwareDelta, setHardwareDelta] = useState(null);
   const [loadingDelta, setLoadingDelta] = useState(false);
+  const [customUrl, setCustomUrl] = useState("https://portfolio-teal-nine-41.vercel.app/");
 
   // Check backend health on load
   useEffect(() => {
@@ -133,8 +134,9 @@ const Dashboard = () => {
     try {
       setOutput("Running performance test...");
 
-      // 1️⃣ Fetch hardware delta
-      const response = await fetch(BACKEND + "/hardware-delta");
+      // 1️⃣ Fetch hardware delta with custom URL
+      const encodedUrl = encodeURIComponent(customUrl);
+      const response = await fetch(BACKEND + `/hardware-delta?url=${encodedUrl}`);
       if (!response.ok) throw new Error("Test failed");
 
       const data = await response.json();
@@ -216,6 +218,26 @@ const Dashboard = () => {
                 style={{ marginBottom: 24 }}
                 bordered={false}
               >
+                {/* URL Input */}
+                <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+                  <Text strong>Test URL:</Text>
+                  <input
+                    type="text"
+                    value={customUrl}
+                    onChange={(e) => setCustomUrl(e.target.value)}
+                    placeholder="Enter URL to test"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #d9d9d9',
+                      borderRadius: '6px',
+                      outline: 'none'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1890ff'}
+                    onBlur={(e) => e.target.style.borderColor = '#d9d9d9'}
+                  />
+                </Space>
                 <div className="buttons-container">
                   <Space wrap>
                     <Button
