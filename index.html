@@ -26,6 +26,12 @@ pre {
   max-height: 200px;
   overflow: auto;
 }
+img {
+  margin-top: 20px;
+  max-width: 400px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
 </style>
 </head>
 
@@ -33,64 +39,60 @@ pre {
 
 <h1>📱 Smartphone-as-a-Service Demo</h1>
 
-<button onclick="call('/reserve')">Reserve</button>
-<button onclick="call('/run-test')">Run Test</button>
-<button onclick="call('/run-alert-test')">Run Alert Test</button>
-<button onclick="getMetrics()">Metrics</button>
-<button onclick="call('/release')">Release</button>
+<button onclick="callJSON('/reserve')">Reserve</button>
+<button onclick="runTestAndShowScreenshot()">Run Test</button>
+<button onclick="callJSON('/run-alert-test')">Run Alert Test</button>
+<button onclick="callJSON('/metrics')">Metrics</button>
+<button onclick="callJSON('/release')">Release</button>
 
 <pre id="out">Waiting...</pre>
+<img id="device-screenshot" src="" alt="Device Screenshot">
 
 <script>
-// Configuration - UPDATE THIS WITH YOUR TUNNEL URL
-// For development: use your cloudflared tunnel URL
-// For production: use your named tunnel URL (e.g., https://smartphone-demo.yourname.com)
-const BACKEND = "https://diagram-comedy-holder-california.trycloudflare.com";
+// =========================
+// Backend URL - UPDATE HERE
+// =========================
+const BACKEND = "http://127.0.0.1:8000";
 
-async function call(endpoint) {
+// Generic function to call JSON endpoints
+async function callJSON(endpoint) {
   try {
     const response = await fetch(BACKEND + endpoint, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      mode: 'cors', // Explicitly set CORS mode
+      headers: { 'Content-Type': 'application/json' },
+      mode: 'cors',
     });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
     const data = await response.json();
     document.getElementById("out").textContent = JSON.stringify(data, null, 2);
   } catch (e) {
-    document.getElementById("out").textContent = `Error: ${e.message}\n\nTroubleshooting:\n- Is backend running?\n- Is cloudflare tunnel active?\n- Is BACKEND URL correct?`;
-    console.error('Fetch error:', e);
+    document.getElementById("out").textContent = `Error: ${e.message}`;
+    console.error('Fetch JSON error:', e);
   }
 }
 
-async function getMetrics() {
+// Run test and automatically display screenshot
+async function runTestAndShowScreenshot() {
   try {
-    const response = await fetch(BACKEND + "/metrics", {
+    const response = await fetch(BACKEND + "/run-test", {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       mode: 'cors',
     });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    document.getElementById("out").textContent =
-      "Battery:\n" + data.battery +
-      "\n\nCPU:\n" + data.cpu +
-      "\n\nMemory:\n" + data.memory;
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+    // Handle response as image blob
+    const blob = await response.blob();
+    const imgElement = document.getElementById("device-screenshot");
+    imgElement.src = URL.createObjectURL(blob);
+
+    document.getElementById("out").textContent = "✅ Test ran and screenshot displayed!";
   } catch (e) {
     document.getElementById("out").textContent = `Error: ${e.message}`;
-    console.error('Fetch error:', e);
+    console.error('Run test error:', e);
   }
 }
 
